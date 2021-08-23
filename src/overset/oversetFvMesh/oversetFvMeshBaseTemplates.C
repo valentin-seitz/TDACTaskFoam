@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2014-2019 OpenCFD Ltd.
+    Copyright (C) 2022 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -27,7 +27,6 @@ License
 
 #include "volFields.H"
 #include "fvMatrix.H"
-#include "cellCellStencilObject.H"
 #include "oversetFvPatchField.H"
 #include "calculatedProcessorFvPatchField.H"
 #include "lduInterfaceFieldPtrsList.H"
@@ -36,121 +35,79 @@ License
 
 // * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * * * //
 
-template<class T>
-void Foam::dynamicOversetFvMesh::interpolate(Field<T>& psi) const
+template<class Type>
+void Foam::oversetFvMeshBase::scaleConnection
+(
+    Field<Type>& coeffs,
+    const labelUList& types,
+    const scalarList& factor,
+    const bool setHoleCellValue,
+    const label celli,
+    const label facei
+) const
 {
-    const cellCellStencil& overlap = Stencil::New(*this);
-    const labelListList& stencil = overlap.cellStencil();
+    const label cType = types[celli];
+    const scalar f = factor[celli];
 
-    if (stencil.size() != nCells())
+    if (cType == cellCellStencil::INTERPOLATED)
     {
-        return;
+        coeffs[facei] *= 1.0-f;
     }
-
-    const mapDistribute& map = overlap.cellInterpolationMap();
-    const List<scalarList>& wghts = overlap.cellInterpolationWeights();
-    const labelList& cellIDs = overlap.interpolationCells();
-    const scalarList& factor = overlap.cellInterpolationWeight();
-
-    Field<T> work(psi);
-    map.mapDistributeBase::distribute(work, UPstream::msgType()+1);
-
-    forAll(cellIDs, i)
+    else if (cType == cellCellStencil::HOLE)
     {
-        label celli = cellIDs[i];
-
-        const scalarList& w = wghts[celli];
-        const labelList& nbrs = stencil[celli];
-        const scalar f = factor[celli];
-
-        T s(pTraits<T>::zero);
-        forAll(nbrs, nbrI)
-        {
-            s += w[nbrI]*work[nbrs[nbrI]];
-        }
-        //Pout<< "Interpolated value:" << s << endl;
-        //T oldPsi = psi[celli];
-        psi[celli] = (1.0-f)*psi[celli] + f*s;
-        //Pout<< "psi was:" << oldPsi << " now:" << psi[celli] << endl;
+        // Disconnect hole cell from influence of neighbour
+        coeffs[facei] = pTraits<Type>::zero;
     }
-}
-
-
-template<class GeoField>
-void Foam::dynamicOversetFvMesh::interpolate(GeoField& psi) const
-{
-    interpolate(psi.primitiveFieldRef());
-    psi.correctBoundaryConditions();
-}
-
-
-template<class GeoField>
-void Foam::dynamicOversetFvMesh::interpolate(const wordHashSet& suppressed)
-{
-    auto flds(this->lookupClass<GeoField>());
-    for (auto fldPtr : flds)
+    else if (cType == cellCellStencil::SPECIAL)
     {
-        const word& name = fldPtr->name();
-        if (!suppressed.found(baseName(name)))
+        if (setHoleCellValue)
         {
-            if (debug)
-            {
-                Pout<< "dynamicOversetFvMesh::interpolate: interpolating : "
-                    << name << endl;
-            }
-            interpolate(fldPtr->primitiveFieldRef());
+            // Behave like hole
+            coeffs[facei] = pTraits<Type>::zero;
         }
         else
         {
-            if (debug)
-            {
-                Pout<< "dynamicOversetFvMesh::interpolate: skipping : " << name
-                    << endl;
-            }
+            // Behave like interpolated
+            coeffs[facei] *= 1.0-f;
         }
     }
 }
 
-
 template<class GeoField, class PatchType>
-void Foam::dynamicOversetFvMesh::correctBoundaryConditions
+void Foam::oversetFvMeshBase::correctBoundaryConditions
 (
     typename GeoField::Boundary& bfld,
     const bool typeOnly
 )
 {
-    const label startOfRequests = UPstream::nRequests();
+    const label nReq = Pstream::nRequests();
 
     forAll(bfld, patchi)
     {
         if (typeOnly == (isA<PatchType>(bfld[patchi]) != nullptr))
         {
-            bfld[patchi].initEvaluate(UPstream::defaultCommsType);
+            bfld[patchi].initEvaluate(Pstream::defaultCommsType);
         }
     }
 
-    // Wait for outstanding requests
-    if
-    (
-        UPstream::parRun()
-     && UPstream::defaultCommsType == UPstream::commsTypes::nonBlocking
-    )
+    // Block for any outstanding requests
+    if (Pstream::parRun())
     {
-        UPstream::waitRequests(startOfRequests);
+        Pstream::waitRequests(nReq);
     }
 
     forAll(bfld, patchi)
     {
         if (typeOnly == (isA<PatchType>(bfld[patchi]) != nullptr))
         {
-            bfld[patchi].evaluate(UPstream::defaultCommsType);
+            bfld[patchi].evaluate(Pstream::defaultCommsType);
         }
     }
 }
 
 
 template<class Type>
-Foam::tmp<Foam::scalarField> Foam::dynamicOversetFvMesh::normalisation
+Foam::tmp<Foam::scalarField> Foam::oversetFvMeshBase::normalisation
 (
     const fvMatrix<Type>& m
 ) const
@@ -168,7 +125,7 @@ Foam::tmp<Foam::scalarField> Foam::dynamicOversetFvMesh::normalisation
     {
         forAll(internalCoeffs, patchi)
         {
-            const labelUList& fc = lduAddr().patchAddr(patchi);
+            const labelUList& fc = mesh_.lduAddr().patchAddr(patchi);
             const Field<Type>& intCoeffs = internalCoeffs[patchi];
             const scalarField cmptCoeffs(intCoeffs.component(cmpt));
             forAll(fc, i)
@@ -204,9 +161,9 @@ Foam::tmp<Foam::scalarField> Foam::dynamicOversetFvMesh::normalisation
     {
         // Walk out the norm across hole cells
 
-        const labelList& own = faceOwner();
-        const labelList& nei = faceNeighbour();
-        const cellCellStencilObject& overlap = Stencil::New(*this);
+        const labelList& own = mesh_.faceOwner();
+        const labelList& nei = mesh_.faceNeighbour();
+        const cellCellStencilObject& overlap = Stencil::New(mesh_);
         const labelUList& types = overlap.cellTypes();
 
         label nHoles = 0;
@@ -220,8 +177,8 @@ Foam::tmp<Foam::scalarField> Foam::dynamicOversetFvMesh::normalisation
             }
         }
 
-        bitSet isFront(nFaces());
-        for (label facei = 0; facei < nInternalFaces(); facei++)
+        bitSet isFront(mesh_.nFaces());
+        for (label facei = 0; facei < mesh_.nInternalFaces(); facei++)
         {
             label ownType = types[own[facei]];
             label neiType = types[nei[facei]];
@@ -235,11 +192,16 @@ Foam::tmp<Foam::scalarField> Foam::dynamicOversetFvMesh::normalisation
             }
         }
         labelList nbrTypes;
-        syncTools::swapBoundaryCellList(*this, types, nbrTypes);
-        for (label facei = nInternalFaces(); facei < nFaces(); facei++)
+        syncTools::swapBoundaryCellList(mesh_, types, nbrTypes);
+        for
+        (
+            label facei = mesh_.nInternalFaces();
+            facei < mesh_.nFaces();
+            ++facei
+        )
         {
-            label ownType = types[own[facei]];
-            label neiType = nbrTypes[facei-nInternalFaces()];
+            const label ownType = types[own[facei]];
+            const label neiType = nbrTypes[facei-mesh_.nInternalFaces()];
             if
             (
                 (ownType == cellCellStencil::HOLE)
@@ -254,9 +216,9 @@ Foam::tmp<Foam::scalarField> Foam::dynamicOversetFvMesh::normalisation
         while (true)
         {
             scalarField nbrNorm;
-            syncTools::swapBoundaryCellList(*this, extrapolatedNorm, nbrNorm);
+            syncTools::swapBoundaryCellList(mesh_, extrapolatedNorm, nbrNorm);
 
-            bitSet newIsFront(nFaces());
+            bitSet newIsFront(mesh_.nFaces());
             scalarField newNorm(extrapolatedNorm);
 
             label nChanged = 0;
@@ -278,7 +240,7 @@ Foam::tmp<Foam::scalarField> Foam::dynamicOversetFvMesh::normalisation
                 }
                 if
                 (
-                    isInternalFace(facei)
+                    mesh_.isInternalFace(facei)
                  && extrapolatedNorm[nei[facei]] == -GREAT
                 )
                 {
@@ -305,7 +267,7 @@ Foam::tmp<Foam::scalarField> Foam::dynamicOversetFvMesh::normalisation
             // Transfer new front
             extrapolatedNorm.transfer(newNorm);
             isFront.transfer(newIsFront);
-            syncTools::syncFaceList(*this, isFront, maxEqOp<unsigned int>());
+            syncTools::syncFaceList(mesh_, isFront, maxEqOp<unsigned int>());
         }
 
 
@@ -330,16 +292,17 @@ Foam::tmp<Foam::scalarField> Foam::dynamicOversetFvMesh::normalisation
 
 
 template<class Type>
-void Foam::dynamicOversetFvMesh::addInterpolation
+void Foam::oversetFvMeshBase::addInterpolation
 (
     fvMatrix<Type>& m,
-    const scalarField& normalisation
+    const scalarField& normalisation,
+    const bool setHoleCellValue,
+    const Type& holeCellValue
 ) const
 {
-    const cellCellStencilObject& overlap = Stencil::New(*this);
+    const cellCellStencilObject& overlap = Stencil::New(mesh_);
     const List<scalarList>& wghts = overlap.cellInterpolationWeights();
     const labelListList& stencil = overlap.cellStencil();
-    const labelList& cellIDs = overlap.interpolationCells();
     const scalarList& factor = overlap.cellInterpolationWeight();
     const labelUList& types = overlap.cellTypes();
 
@@ -356,8 +319,6 @@ void Foam::dynamicOversetFvMesh::addInterpolation
     const lduAddressing& addr = lduAddr();
     const labelUList& upperAddr = addr.upperAddr();
     const labelUList& lowerAddr = addr.lowerAddr();
-    const labelUList& ownerStartAddr = addr.ownerStartAddr();
-    const labelUList& losortAddr = addr.losortAddr();
     const lduInterfacePtrsList& interfaces = allInterfaces_;
 
     if (!isA<fvMeshPrimitiveLduAddressing>(addr))
@@ -368,7 +329,6 @@ void Foam::dynamicOversetFvMesh::addInterpolation
     }
 
 
-
     // 1. Adapt lduMatrix for additional faces and new ordering
     upper.setSize(upperAddr.size(), 0.0);
     inplaceReorder(reverseFaceMap_, upper);
@@ -377,7 +337,7 @@ void Foam::dynamicOversetFvMesh::addInterpolation
 
 
     //const label nOldInterfaces = dynamicMotionSolverFvMesh::interfaces().size();
-    const label nOldInterfaces = dynamicFvMesh::interfaces().size();
+    const label nOldInterfaces = mesh_.fvMesh::interfaces().size();
 
 
     if (interfaces.size() > nOldInterfaces)
@@ -449,7 +409,6 @@ void Foam::dynamicOversetFvMesh::addInterpolation
     // fvMatrix:correction, both of which are outside the linear solver.
 
 
-
     // Clear out existing connections on cells to be interpolated
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Note: could avoid doing the zeroing of the new faces since these
@@ -457,6 +416,11 @@ void Foam::dynamicOversetFvMesh::addInterpolation
 
     forAll(upperAddr, facei)
     {
+        const label l = lowerAddr[facei];
+        scaleConnection(upper, types, factor, setHoleCellValue, l, facei);
+        const label u = upperAddr[facei];
+        scaleConnection(lower, types, factor, setHoleCellValue, u, facei);
+        /*
         if (types[upperAddr[facei]] == cellCellStencil::INTERPOLATED)
         {
             // Disconnect upper from lower
@@ -469,10 +433,21 @@ void Foam::dynamicOversetFvMesh::addInterpolation
             label celli = lowerAddr[facei];
             upper[facei] *= 1.0-factor[celli];
         }
+        */
     }
 
     for (label patchi = 0; patchi < nOldInterfaces; ++patchi)
     {
+        const labelUList& fc = addr.patchAddr(patchi);
+        Field<Type>& bCoeffs = m.boundaryCoeffs()[patchi];
+        Field<Type>& iCoeffs = m.internalCoeffs()[patchi];
+        forAll(fc, i)
+        {
+            scaleConnection(bCoeffs, types, factor, setHoleCellValue, fc[i], i);
+
+            scaleConnection(iCoeffs, types, factor, setHoleCellValue, fc[i], i);
+        }
+        /*
         const labelUList& fc = addr.patchAddr(patchi);
         Field<Type>& intCoeffs = m.internalCoeffs()[patchi];
         Field<Type>& bouCoeffs = m.boundaryCoeffs()[patchi];
@@ -493,6 +468,7 @@ void Foam::dynamicOversetFvMesh::addInterpolation
                 }
             }
         }
+        */
     }
 
 
@@ -503,8 +479,88 @@ void Foam::dynamicOversetFvMesh::addInterpolation
     // Do hole cells. Note: maybe put into interpolationCells() loop above?
     forAll(types, celli)
     {
-        if (types[celli] == cellCellStencil::HOLE)
+        if
+        (
+            types[celli] == cellCellStencil::HOLE
+         || (setHoleCellValue && types[celli] == cellCellStencil::SPECIAL)
+        )
         {
+            const Type wantedValue
+            (
+                setHoleCellValue
+              ? holeCellValue
+              : m.psi()[celli]
+            );
+            diag[celli] = normalisation[celli];
+            source[celli] = normalisation[celli]*wantedValue;
+        }
+        else if
+        (
+            types[celli] == cellCellStencil::INTERPOLATED
+         || (!setHoleCellValue && types[celli] == cellCellStencil::SPECIAL)
+        )
+        {
+            const scalar f = factor[celli];
+            const scalarList& w = wghts[celli];
+            const labelList& nbrs = stencil[celli];
+            const labelList& nbrFaces = stencilFaces_[celli];
+            const labelList& nbrPatches = stencilPatches_[celli];
+
+            diag[celli] *= (1.0-f);
+            source[celli] *= (1.0-f);
+
+            forAll(nbrs, nbri)
+            {
+                const label patchi = nbrPatches[nbri];
+                const label facei = nbrFaces[nbri];
+
+                if (patchi == -1)
+                {
+                    const label nbrCelli = nbrs[nbri];
+                    // Add the coefficients
+                    const scalar s = normalisation[celli]*f*w[nbri];
+
+                    scalar& u = upper[facei];
+                    scalar& l = lower[facei];
+                    if (celli < nbrCelli)
+                    {
+                        diag[celli] += s;
+                        u += -s;
+                    }
+                    else
+                    {
+                        diag[celli] += s;
+                        l += -s;
+                    }
+                }
+                else
+                {
+                    // Patch face. Store in boundaryCoeffs. Note sign change.
+                    //const label globalCelli = globalCellIDs[nbrs[nbri]];
+                    //const label proci =
+                    //    globalNumbering.whichProcID(globalCelli);
+                    //const label remoteCelli =
+                    //    globalNumbering.toLocal(proci, globalCelli);
+                    //
+                    //Pout<< "for cell:" << celli
+                    //    << " need weight from remote slot:" << nbrs[nbri]
+                    //    << " proc:" << proci << " remote cell:" << remoteCelli
+                    //    << " patch:" << patchi
+                    //    << " patchFace:" << facei
+                    //    << " weight:" << w[nbri]
+                    //    << endl;
+
+                    const scalar s = normalisation[celli]*f*w[nbri];
+                    m.boundaryCoeffs()[patchi][facei] += pTraits<Type>::one*s;
+                    m.internalCoeffs()[patchi][facei] += pTraits<Type>::one*s;
+
+                    // Note: do NOT add to diagonal - this is in the
+                    //       internalCoeffs and gets added to the diagonal
+                    //       inside fvMatrix::solve
+                }
+            }
+        }
+            /*
             label startLabel = ownerStartAddr[celli];
             label endLabel = ownerStartAddr[celli + 1];
 
@@ -524,7 +580,7 @@ void Foam::dynamicOversetFvMesh::addInterpolation
 
             diag[celli] = normalisation[celli];
             source[celli] = normalisation[celli]*m.psi()[celli];
-        }
+            */
     }
 
 
@@ -536,7 +592,7 @@ void Foam::dynamicOversetFvMesh::addInterpolation
     //}
     //overlap.cellInterpolationMap().distribute(globalCellIDs);
 
-
+/*
     forAll(cellIDs, i)
     {
         label celli = cellIDs[i];
@@ -642,11 +698,12 @@ void Foam::dynamicOversetFvMesh::addInterpolation
             //}
         }
     }
+*/
 }
 
 
 template<class Type>
-Foam::SolverPerformance<Type> Foam::dynamicOversetFvMesh::solve
+Foam::SolverPerformance<Type> Foam::oversetFvMeshBase::solveOverset
 (
     fvMatrix<Type>& m,
     const dictionary& dict
@@ -671,17 +728,17 @@ Foam::SolverPerformance<Type> Foam::dynamicOversetFvMesh::solve
     {
         if (debug)
         {
-            Pout<< "dynamicOversetFvMesh::solve() :"
+            Pout<< "oversetFvMeshBase::solveOverset() :"
                 << " bypassing matrix adjustment for field " << m.psi().name()
                 << endl;
         }
         //return dynamicMotionSolverFvMesh::solve(m, dict);
-        return dynamicFvMesh::solve(m, dict);
+        return mesh_.fvMesh::solve(m, dict);
     }
 
     if (debug)
     {
-        Pout<< "dynamicOversetFvMesh::solve() :"
+        Pout<< "oversetFvMeshBase::solveOverset() :"
             << " adjusting matrix for interpolation for field "
             << m.psi().name() << endl;
     }
@@ -689,20 +746,20 @@ Foam::SolverPerformance<Type> Foam::dynamicOversetFvMesh::solve
     // Calculate stabilised diagonal as normalisation for interpolation
     const scalarField norm(normalisation(m));
 
-    if (debug)
+    if (debug && mesh_.time().outputTime())
     {
         volScalarField scale
         (
             IOobject
             (
                 m.psi().name() + "_normalisation",
-                this->time().timeName(),
-                *this,
+                mesh_.time().timeName(),
+                mesh_,
                 IOobject::NO_READ,
                 IOobject::NO_WRITE,
                 false
             ),
-            *this,
+            mesh_,
             dimensionedScalar(dimless, Zero)
         );
         scale.ref().field() = norm;
@@ -715,7 +772,7 @@ Foam::SolverPerformance<Type> Foam::dynamicOversetFvMesh::solve
 
         if (debug)
         {
-            Pout<< "dynamicOversetFvMesh::solve() :"
+            Pout<< "oversetFvMeshBase::solveOverset() :"
                 << " writing matrix normalisation for field " << m.psi().name()
                 << " to " << scale.name() << endl;
         }
@@ -731,9 +788,15 @@ Foam::SolverPerformance<Type> Foam::dynamicOversetFvMesh::solve
     scalarField oldLower(m.lower());
     FieldField<Field, Type> oldInt(m.internalCoeffs());
     FieldField<Field, Type> oldBou(m.boundaryCoeffs());
+
+    Field<Type> oldSource(m.source());
+    scalarField oldDiag(m.diag());
+
     const label oldSize = bpsi.size();
 
-    addInterpolation(m, norm);
+    // Insert the interpolation into the matrix (done inside
+    // oversetFvPatchField<Type>::manipulateMatrix)
+    m.boundaryManipulate(bpsi);
 
     // Swap psi values so added patches have patchNeighbourField
     correctBoundaryConditions<GeoField, calculatedProcessorFvPatchField<Type>>
@@ -742,18 +805,9 @@ Foam::SolverPerformance<Type> Foam::dynamicOversetFvMesh::solve
         true
     );
 
-
-    // Print a bit
-    //write(Pout, m, lduAddr(), interfaces());
-    //{
-    //   const fvSolution& sol = static_cast<const fvSolution&>(*this);
-    //    const dictionary& pDict = sol.subDict("solvers").subDict("p");
-    //    writeAgglomeration(GAMGAgglomeration::New(m, pDict));
-    //}
-
     // Use lower level solver
     //SolverPerformance<Type> s(dynamicMotionSolverFvMesh::solve(m, dict));
-    SolverPerformance<Type> s(dynamicFvMesh::solve(m, dict));
+    SolverPerformance<Type> s(mesh_.fvMesh::solve(m, dict));
 
     // Restore boundary field
     bpsi.setSize(oldSize);
@@ -761,8 +815,44 @@ Foam::SolverPerformance<Type> Foam::dynamicOversetFvMesh::solve
     // Restore matrix
     m.upper().transfer(oldUpper);
     m.lower().transfer(oldLower);
+
+    m.source().transfer(oldSource);
+    m.diag().transfer(oldDiag);
+
     m.internalCoeffs().transfer(oldInt);
     m.boundaryCoeffs().transfer(oldBou);
+
+
+    const cellCellStencilObject& overlap = Stencil::New(mesh_);
+    const labelUList& types = overlap.cellTypes();
+    const labelList& own = mesh_.faceOwner();
+    const labelList& nei = mesh_.faceNeighbour();
+
+    auto& psi =
+        const_cast<GeometricField<Type, fvPatchField, volMesh>&>(m.psi());
+
+    // Mirror hole cell values next to calculated cells
+    for (label facei = 0; facei < mesh_.nInternalFaces(); facei++)
+    {
+        const label ownType = types[own[facei]];
+        const label neiType = types[nei[facei]];
+
+        if
+        (
+            ownType == cellCellStencil::HOLE
+         && neiType == cellCellStencil::CALCULATED)
+        {
+            psi[own[facei]] = psi[nei[facei]];
+        }
+        else if
+        (
+            ownType == cellCellStencil::CALCULATED
+         && neiType == cellCellStencil::HOLE
+        )
+        {
+             psi[nei[facei]] = psi[own[facei]];
+        }
+    }
 
     // Switch to original addressing
     active(false);
@@ -772,7 +862,7 @@ Foam::SolverPerformance<Type> Foam::dynamicOversetFvMesh::solve
 
 
 template<class Type>
-void Foam::dynamicOversetFvMesh::write
+void Foam::oversetFvMeshBase::write
 (
     Ostream& os,
     const fvMatrix<Type>& m,
@@ -899,11 +989,11 @@ void Foam::dynamicOversetFvMesh::write
 
 
 template<class GeoField>
-void Foam::dynamicOversetFvMesh::correctCoupledBoundaryConditions(GeoField& fld)
+void Foam::oversetFvMeshBase::correctCoupledBoundaryConditions(GeoField& fld)
 {
     typename GeoField::Boundary& bfld = fld.boundaryFieldRef();
 
-    const label startOfRequests = UPstream::nRequests();
+    const label nReq = Pstream::nRequests();
 
     forAll(bfld, patchi)
     {
@@ -914,14 +1004,10 @@ void Foam::dynamicOversetFvMesh::correctCoupledBoundaryConditions(GeoField& fld)
         }
     }
 
-    // Wait for outstanding requests
-    if
-    (
-        UPstream::parRun()
-     && UPstream::defaultCommsType == UPstream::commsTypes::nonBlocking
-    )
+    // Block for any outstanding requests
+    if (Pstream::parRun())
     {
-        UPstream::waitRequests(startOfRequests);
+        Pstream::waitRequests(nReq);
     }
 
     forAll(bfld, patchi)
@@ -936,7 +1022,7 @@ void Foam::dynamicOversetFvMesh::correctCoupledBoundaryConditions(GeoField& fld)
 
 
 template<class GeoField>
-void Foam::dynamicOversetFvMesh::checkCoupledBC(const GeoField& fld)
+void Foam::oversetFvMeshBase::checkCoupledBC(const GeoField& fld)
 {
     Pout<< "** starting checking of " << fld.name() << endl;
 
