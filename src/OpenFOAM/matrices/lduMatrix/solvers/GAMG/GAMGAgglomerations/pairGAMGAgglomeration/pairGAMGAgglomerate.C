@@ -6,6 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2011-2016 OpenFOAM Foundation
+    Copyright (C) 2022 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -36,6 +37,18 @@ void Foam::pairGAMGAgglomeration::agglomerate
     const scalarField& faceWeights
 )
 {
+    const label nFaces = mesh.lduAddr().lowerAddr().size();
+    if (faceWeights.size() != nFaces)
+    {
+        FatalErrorInFunction
+            << "Supplied number of face weights " << faceWeights.size()
+            << " does not correspond to the number of faces " << nFaces << endl
+            << "This may be because of using a geometry-based"
+            << " agglomeration method instead of a matrix-based one"
+            << exit(FatalError);
+    }
+
+
     // Start geometric agglomeration from the given faceWeights
     scalarField* faceWeightsPtr = const_cast<scalarField*>(&faceWeights);
 
