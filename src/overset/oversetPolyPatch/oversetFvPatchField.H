@@ -72,13 +72,13 @@ protected:
 
         // Hole cell controls
 
-            //- Set hole cell value
+            //- Flag to set hole cell values
             const bool setHoleCellValue_;
 
-            //- Correct mass
-            const bool massCorrection_;
+            //- Flag to correct fluxes
+            const bool fluxCorrection_;
 
-            //- Interpolate hole cell value (from nearby non-hole cell)
+            //- Flag to interpolate hole cell values (from nearby non-hole cell)
             const bool interpolateHoleCellValue_;
 
             //- Hole cell value
