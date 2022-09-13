@@ -73,5 +73,29 @@ ZMin
     };
 }
 
+tree1
+{
+    type    opaqueReflective;
+    fd 0;
+    wallAbsorptionEmissionModel
+    {
+        type            multiBandAbsorption;
+        absorptivity    (0.9 0.9);
+        emissivity      (0.3 0.7);
+    };
+}
+
+tree2
+{
+    type    opaqueReflective;
+    fd 0;
+    wallAbsorptionEmissionModel
+    {
+        type            multiBandAbsorption;
+        absorptivity    (0.9 0.9);
+        emissivity      (0.3 0.7);
+    };
+}
+
 
 // ************************************************************************* //

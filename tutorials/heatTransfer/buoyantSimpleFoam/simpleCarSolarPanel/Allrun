@@ -17,6 +17,12 @@ runApplication surfaceFeatureExtract
 
 runApplication snappyHexMesh -overwrite
 
+runApplication topoSet
+
+runApplication checkMesh -allTopology -allGeometry
+
+runApplication foamToVTK -faceZones '(tree1 tree2)'
+
 runApplication $(getApplication)
 
 #------------------------------------------------------------------------------
