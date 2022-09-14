@@ -283,58 +283,23 @@ void Foam::radiation::solarLoad::updateSkyDiffusiveRadiation
                 const vectorField n = pp.faceNormals();
                 const labelList& cellIds = pp.faceCells();
 
-                forAll(n, facei)
+                // Calculate diffusive radiance
+                // contribution from sky and ground
+                tmp<scalarField> tdiffuseSolarRad =
+                    solarCalc_.diffuseSolarRad(n);
+                const scalarField& diffuseSolarRad = tdiffuseSolarRad.cref();
+
+                forAll(n, faceI)
                 {
-                    const scalar cosEpsilon(verticalDir_ & -n[facei]);
-
-                    scalar Ed(0.0);
-                    scalar Er(0.0);
-                    const scalar cosTheta(solarCalc_.direction() & -n[facei]);
-
-                    {
-                        // Above the horizon
-                        if (cosEpsilon == 0.0)
-                        {
-                            // Vertical walls
-                            scalar Y(0);
-
-                            if (cosTheta > -0.2)
-                            {
-                                Y = 0.55+0.437*cosTheta + 0.313*sqr(cosTheta);
-                            }
-                            else
-                            {
-                                Y = 0.45;
-                            }
-
-                            Ed = solarCalc_.C()*Y*solarCalc_.directSolarRad();
-                        }
-                        else
-                        {
-                            //Other than vertical walls
-                            Ed =
-                                solarCalc_.C()
-                              * solarCalc_.directSolarRad()
-                              * (1.0 + cosEpsilon)/2.0;
-                        }
-
-                        // Ground reflected
-                        Er =
-                            solarCalc_.directSolarRad()
-                          * (solarCalc_.C() + Foam::sin(solarCalc_.beta()))
-                          * solarCalc_.groundReflectivity()
-                          * (1.0 - cosEpsilon)/2.0;
-                    }
-
-                    const label cellI = cellIds[facei];
+                    const label cellI = cellIds[faceI];
                     if (includeMappedPatchBasePatches[patchID])
                     {
                         for (label bandI = 0; bandI < nBands_; ++bandI)
                         {
-                            qrBf[patchID][facei] +=
-                                (Ed + Er)
+                            qrBf[patchID][faceI] +=
+                                diffuseSolarRad[faceI]
                               * spectralDistribution_[bandI]
-                              * absorptivity_[patchID][bandI]()[facei];
+                              * absorptivity_[patchID][bandI]()[faceI];
                         }
                     }
                     else
@@ -342,10 +307,10 @@ void Foam::radiation::solarLoad::updateSkyDiffusiveRadiation
                         for (label bandI = 0; bandI < nBands_; ++bandI)
                         {
                             Ru_[cellI] +=
-                                (Ed + Er)
+                                diffuseSolarRad[faceI]
                               * spectralDistribution_[bandI]
-                              * absorptivity_[patchID][bandI]()[facei]
-                              * sf[facei]/V[cellI];
+                              * absorptivity_[patchID][bandI]()[faceI]
+                              * sf[faceI]/V[cellI];
                         }
                     }
                 }
