@@ -66,7 +66,7 @@ Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::Y()
     return this->Y_;
 }
 
-
+/*
 template<class ReactionThermo, class ThermoType>
 inline
 Foam::autoPtr<Foam::chemistryReductionMethod<ReactionThermo, ThermoType>>&
@@ -75,6 +75,7 @@ Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::mechRed()
     return mechRed_;
 }
 
+*/
 
 template<class ReactionThermo, class ThermoType>
 inline void Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::setActive

@@ -67,8 +67,8 @@ SourceFiles
 #define TDACTaskChemistryModel_H
 
 #include "StandardChemistryModel.H"
-#include "chemistryReductionMethod.H"
-#include "chemistryTabulationMethod.H"
+//#include "chemistryReductionMethod.H"
+//#include "chemistryTabulationMethod.H"
 #include "OFstream.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -99,13 +99,15 @@ class TDACTaskChemistryModel
         List<List<specieElement>> specieComp_;
         Field<label> completeToSimplifiedIndex_;
         DynamicList<label> simplifiedToCompleteIndex_;
+        /*
         autoPtr<chemistryReductionMethod<ReactionThermo, ThermoType>>
             mechRed_;
+       
 
         // Tabulation
         autoPtr<chemistryTabulationMethod<ReactionThermo, ThermoType>>
             tabulation_;
-
+        */
         // Log file for the average time spent reducing the chemistry
         autoPtr<OFstream> cpuReduceFile_;
 
@@ -149,7 +151,7 @@ class TDACTaskChemistryModel
 public:
 
     //- Runtime type information
-    TypeName("TDAC");
+    TypeName("TDACTask");
 
 
     // Constructors
@@ -272,11 +274,12 @@ public:
             inline const Field<label>& completeToSimplifiedIndex() const;
 
             inline List<List<specieElement>>& specieComp();
-
-            inline
+            /*
+            inline 
                 autoPtr<chemistryReductionMethod<ReactionThermo, ThermoType>>&
                 mechRed();
 
+            */
             tmp<volScalarField> tabulationResults() const
             {
                 return tabulationResults_;

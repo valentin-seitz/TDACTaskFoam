@@ -85,16 +85,17 @@ Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::TDACTaskChemistryModel
     {
         specieComp_[i] = (specCompPtr.ref())[this->Y()[i].member()];
     }
-
+    /*
     mechRed_ = chemistryReductionMethod<ReactionThermo, ThermoType>::New
     (
         *this,
         *this
     );
-
+    */
     // When the mechanism reduction method is used, the 'active' flag for every
     // species should be initialized (by default 'active' is true)
-    if (mechRed_->active())
+    //if (mechRed_->active())
+    if(false)
     {
         forAll(this->Y(), i)
         {
@@ -116,12 +117,13 @@ Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::TDACTaskChemistryModel
         }
     }
 
+    /*
     tabulation_ = chemistryTabulationMethod<ReactionThermo, ThermoType>::New
     (
         *this,
         *this
     );
-
+    
     if (mechRed_->log())
     {
         cpuReduceFile_ = logFile("cpu_reduce.out");
@@ -139,6 +141,7 @@ Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::TDACTaskChemistryModel
     {
         cpuSolveFile_ = logFile("cpu_solve.out");
     }
+    */
 }
 
 
@@ -160,7 +163,7 @@ void Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::omega
     scalarField& dcdt
 ) const
 {
-    const bool reduced = mechRed_->active();
+    const bool reduced = false; //mechRed_->active();
 
     scalar pf, cf, pr, cr;
     label lRef, rRef;
@@ -322,7 +325,7 @@ void Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::derivatives
     scalarField& dcdt
 ) const
 {
-    const bool reduced = mechRed_->active();
+    const bool reduced = false; //mechRed_->active();
 
     const scalar T = c[this->nSpecie_];
     const scalar p = c[this->nSpecie_ + 1];
@@ -406,7 +409,7 @@ void Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::jacobian
     scalarSquareMatrix& dfdc
 ) const
 {
-    const bool reduced = mechRed_->active();
+    const bool reduced = false; //mechRed_->active();
 
     // If the mechanism reduction is active, the computed Jacobian
     // is compact (size of the reduced set of species)
@@ -612,9 +615,9 @@ Foam::scalar Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::solve
     // Increment counter of time-step
     timeSteps_++;
 
-    const bool reduced = mechRed_->active();
+    const bool reduced = false; // mechRed_->active();
 
-    label nAdditionalEqn = (tabulation_->variableTimeStep() ? 1 : 0);
+    label nAdditionalEqn = 0; // (tabulation_->variableTimeStep() ? 1 : 0);
 
     basicSpecieMixture& composition = this->thermo().composition();
 
@@ -682,11 +685,13 @@ Foam::scalar Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::solve
         }
         phiq[this->nSpecie()] = Ti;
         phiq[this->nSpecie() + 1] = pi;
+        /*
         if (tabulation_->variableTimeStep())
         {
             phiq[this->nSpecie() + 2] = deltaT[celli];
         }
 
+        */
 
         // Initialise time progress
         scalar timeLeft = deltaT[celli];
@@ -699,7 +704,9 @@ Foam::scalar Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::solve
         // When tabulation is active (short-circuit evaluation for retrieve)
         // It first tries to retrieve the solution of the system with the
         // information stored through the tabulation method
-        if (tabulation_->active() && tabulation_->retrieve(phiq, Rphiq))
+        
+        //if (tabulation_->active() && tabulation_->retrieve(phiq, Rphiq))
+        if(false)
         {
             // Retrieved solution stored in Rphiq
             for (label i=0; i<this->nSpecie(); ++i)
@@ -721,8 +728,8 @@ Foam::scalar Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::solve
             if (reduced)
             {
                 // Reduce mechanism change the number of species (only active)
-                mechRed_->reduceMechanism(c, Ti, pi);
-                nActiveSpecies += mechRed_->NsSimp();
+                //mechRed_->reduceMechanism(c, Ti, pi);
+                //nActiveSpecies += mechRed_->NsSimp();
                 ++nAvg;
                 scalar timeIncr = clockTime_.timeIncrement();
                 reduceMechCpuTime_ += timeIncr;
@@ -765,6 +772,7 @@ Foam::scalar Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::solve
 
             // If tabulation is used, we add the information computed here to
             // the stored points (either expand or add)
+            /*
             if (tabulation_->active())
             {
                 forAll(c, i)
@@ -797,12 +805,14 @@ Foam::scalar Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::solve
                 }
             }
 
+            */
+
             // When operations are done and if mechanism reduction is active,
             // the number of species (which also affects nEqns) is set back
             // to the total number of species (stored in the mechRed object)
             if (reduced)
             {
-                this->nSpecie_ = mechRed_->nSpecie();
+                //this->nSpecie_ = mechRed_->nSpecie();
             }
             deltaTMin = min(this->deltaTChem_[celli], deltaTMin);
 
@@ -817,7 +827,7 @@ Foam::scalar Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::solve
                 (c[i] - c0[i])*this->specieThermo_[i].W()/deltaT[celli];
         }
     }
-
+    /*
     if (mechRed_->log() || tabulation_->log())
     {
         cpuSolveFile_()
@@ -831,7 +841,9 @@ Foam::scalar Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::solve
             << this->time().timeOutputValue()
             << "    " << reduceMechCpuTime_ << endl;
     }
-
+    */
+   
+    /*
     if (tabulation_->active())
     {
         // Every time-step, look if the tabulation should be updated
@@ -856,6 +868,9 @@ Foam::scalar Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::solve
         }
     }
 
+    */
+
+    /*
     if (reduced && nAvg && mechRed_->log())
     {
         // Write average number of species
@@ -863,6 +878,7 @@ Foam::scalar Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::solve
             << this->time().timeOutputValue()
             << "    " << nActiveSpecies/nAvg << endl;
     }
+    */
 
     if (reduced && Pstream::parRun())
     {

@@ -32,6 +32,7 @@ License
 
 #include "StandardChemistryModel.H"
 #include "TDACChemistryModel.H"
+#include "TDACTaskChemistryModel.H"
 
 #include "noChemistrySolver.H"
 #include "EulerImplicit.H"
@@ -69,6 +70,20 @@ License
     BasicChemistryModel<Comp>::                                                \
         add##thermo##ConstructorToTable<TDAC##SS##Comp##Thermo>                \
         add##TDAC##SS##Comp##Thermo##thermo##ConstructorTo##BasicChemistryModel\
+##Comp##Table_; \
+typedef SS<TDACTaskChemistryModel<Comp, Thermo>> TDACTask##SS##Comp##Thermo;           \
+                                                                               \
+    defineTemplateTypeNameAndDebugWithName                                     \
+    (                                                                          \
+        TDACTask##SS##Comp##Thermo,                                                \
+        (#SS"<" + word(TDACTaskChemistryModel<Comp, Thermo>::typeName_()) + "<"    \
+        + word(Comp::typeName_()) + "," + Thermo::typeName() + ">>").c_str(),  \
+        0                                                                      \
+    );                                                                         \
+                                                                               \
+    BasicChemistryModel<Comp>::                                                \
+        add##thermo##ConstructorToTable<TDACTask##SS##Comp##Thermo>                \
+        add##TDACTask##SS##Comp##Thermo##thermo##ConstructorTo##BasicChemistryModel\
 ##Comp##Table_;
 
 
