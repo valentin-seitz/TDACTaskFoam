@@ -4,6 +4,9 @@ chemistryModel/BasicChemistryModel/BasicChemistryModels.C
 chemistryModel/TDACChemistryModel/reduction/makeChemistryReductionMethods.C
 chemistryModel/TDACChemistryModel/tabulation/makeChemistryTabulationMethods.C
 
+
+chemistryModel/TDACTaskChemistryModel/taskTabulation/makeChemistryTaskTabulationMethods.C
+
 chemistrySolver/chemistrySolver/makeChemistrySolvers.C
 
 functionObjects/specieReactionRates/specieReactionRates.C

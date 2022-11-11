@@ -69,7 +69,9 @@ Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::TDACTaskChemistryModel
         this->mesh(),
         dimensionedScalar(dimless, Zero)
     )
-{
+{   
+
+    std::cout << "CREATING TDACTASK MODEL" << std::endl;
     basicSpecieMixture& composition = this->thermo().composition();
 
     // Store the species composition according to the species index
@@ -672,6 +674,7 @@ Foam::scalar Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::solve
 
     forAll(rho, celli)
     {
+
         const scalar rhoi = rho[celli];
         scalar pi = p[celli];
         scalar Ti = T[celli];
@@ -826,6 +829,13 @@ Foam::scalar Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::solve
             this->RR_[i][celli] =
                 (c[i] - c0[i])*this->specieThermo_[i].W()/deltaT[celli];
         }
+
+        //const label nProcs=Pstream::nProcs();   
+        /*
+        if(nProcs > 1){ 
+            std::cout <<"Proc: " << Pstream::myProcNo() << " done solving: " << celli  << std::endl;
+        }
+        */
     }
     /*
     if (mechRed_->log() || tabulation_->log())
@@ -842,7 +852,7 @@ Foam::scalar Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::solve
             << "    " << reduceMechCpuTime_ << endl;
     }
     */
-   
+
     /*
     if (tabulation_->active())
     {

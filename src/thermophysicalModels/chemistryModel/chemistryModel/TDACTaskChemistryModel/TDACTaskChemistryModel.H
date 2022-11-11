@@ -68,7 +68,7 @@ SourceFiles
 
 #include "StandardChemistryModel.H"
 //#include "chemistryReductionMethod.H"
-//#include "chemistryTabulationMethod.H"
+#include "chemistryTaskTabulationMethod.H"
 #include "OFstream.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -103,11 +103,11 @@ class TDACTaskChemistryModel
         autoPtr<chemistryReductionMethod<ReactionThermo, ThermoType>>
             mechRed_;
        
-
-        // Tabulation
-        autoPtr<chemistryTabulationMethod<ReactionThermo, ThermoType>>
-            tabulation_;
         */
+        // Tabulation
+        autoPtr<chemistryTaskTabulationMethod<ReactionThermo, ThermoType>>
+            tabulation_;
+       
         // Log file for the average time spent reducing the chemistry
         autoPtr<OFstream> cpuReduceFile_;
 
