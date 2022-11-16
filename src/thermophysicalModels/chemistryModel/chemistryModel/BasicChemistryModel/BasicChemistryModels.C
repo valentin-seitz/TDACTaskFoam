@@ -38,6 +38,7 @@ Description
 
 #include "StandardChemistryModel.H"
 #include "TDACChemistryModel.H"
+#include "TDACTaskChemistryModel.H"
 #include "thermoPhysicsTypes.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -277,6 +278,122 @@ namespace Foam
     );
 
 
+    // TDAC TASK MODELS
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        psiReactionThermo,
+        constGasHThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        psiReactionThermo,
+        gasHThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        psiReactionThermo,
+        constIncompressibleGasHThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        psiReactionThermo,
+        incompressibleGasHThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        psiReactionThermo,
+        icoPoly8HThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        psiReactionThermo,
+        constFluidHThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        psiReactionThermo,
+        constAdiabaticFluidHThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        psiReactionThermo,
+        constHThermoPhysics
+    );
+
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        rhoReactionThermo,
+        constGasHThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        rhoReactionThermo,
+        gasHThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        rhoReactionThermo,
+        constIncompressibleGasHThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        rhoReactionThermo,
+        incompressibleGasHThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        rhoReactionThermo,
+        icoPoly8HThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        rhoReactionThermo,
+        constFluidHThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        rhoReactionThermo,
+        constAdiabaticFluidHThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        rhoReactionThermo,
+        constHThermoPhysics
+    );
+
+
+
     // Chemistry moldels based on sensibleInternalEnergy
     makeChemistryModelType
     (
@@ -502,6 +619,121 @@ namespace Foam
     makeChemistryModelType
     (
         TDACChemistryModel,
+        rhoReactionThermo,
+        constEThermoPhysics
+    );
+
+    // TDAC TASK MODELS
+    
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        psiReactionThermo,
+        constGasEThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        psiReactionThermo,
+        gasEThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        psiReactionThermo,
+        constIncompressibleGasEThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        psiReactionThermo,
+        incompressibleGasEThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        psiReactionThermo,
+        icoPoly8EThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        psiReactionThermo,
+        constFluidEThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        psiReactionThermo,
+        constAdiabaticFluidEThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        psiReactionThermo,
+        constEThermoPhysics
+    );
+
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        rhoReactionThermo,
+        constGasEThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        rhoReactionThermo,
+        gasEThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        rhoReactionThermo,
+        constIncompressibleGasEThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        rhoReactionThermo,
+        incompressibleGasEThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        rhoReactionThermo,
+        icoPoly8EThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        rhoReactionThermo,
+        constFluidEThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
+        rhoReactionThermo,
+        constAdiabaticFluidEThermoPhysics
+    );
+
+    makeChemistryModelType
+    (
+        TDACTaskChemistryModel,
         rhoReactionThermo,
         constEThermoPhysics
     );
