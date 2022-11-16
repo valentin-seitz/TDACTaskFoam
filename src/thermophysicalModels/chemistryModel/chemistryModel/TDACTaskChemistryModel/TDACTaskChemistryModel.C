@@ -88,7 +88,7 @@ Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::TDACTaskChemistryModel
         specieComp_[i] = (specCompPtr.ref())[this->Y()[i].member()];
     }
     /*
-    mechRed_ = chemistryReductionMethod<ReactionThermo, ThermoType>::New
+    mechRed_ = chemistryTaskReductionMethod<ReactionThermo, ThermoType>::New
     (
         *this,
         *this

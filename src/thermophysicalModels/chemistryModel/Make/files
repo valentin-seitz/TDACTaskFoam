@@ -4,7 +4,7 @@ chemistryModel/BasicChemistryModel/BasicChemistryModels.C
 chemistryModel/TDACChemistryModel/reduction/makeChemistryReductionMethods.C
 chemistryModel/TDACChemistryModel/tabulation/makeChemistryTabulationMethods.C
 
-
+chemistryModel/TDACTaskChemistryModel/taskReduction/makeTaskChemistryReductionMethods.C
 chemistryModel/TDACTaskChemistryModel/taskTabulation/makeChemistryTaskTabulationMethods.C
 
 chemistrySolver/chemistrySolver/makeChemistrySolvers.C
