@@ -69,7 +69,9 @@ Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::TDACTaskChemistryModel
         this->mesh(),
         dimensionedScalar(dimless, Zero)
     )
-{
+{   
+
+    std::cout << "CREATING TDACTASK MODEL" << std::endl;
     basicSpecieMixture& composition = this->thermo().composition();
 
     // Store the species composition according to the species index
@@ -85,13 +87,13 @@ Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::TDACTaskChemistryModel
     {
         specieComp_[i] = (specCompPtr.ref())[this->Y()[i].member()];
     }
-    /*
-    mechRed_ = chemistryReductionMethod<ReactionThermo, ThermoType>::New
+    
+    mechRed_ = chemistryTaskReductionMethod<ReactionThermo, ThermoType>::New
     (
         *this,
         *this
     );
-    */
+    
     // When the mechanism reduction method is used, the 'active' flag for every
     // species should be initialized (by default 'active' is true)
     //if (mechRed_->active())
@@ -826,6 +828,13 @@ Foam::scalar Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::solve
             this->RR_[i][celli] =
                 (c[i] - c0[i])*this->specieThermo_[i].W()/deltaT[celli];
         }
+
+        //const label nProcs=Pstream::nProcs();   
+        /*
+        if(nProcs > 1){ 
+            std::cout <<"Proc: " << Pstream::myProcNo() << " done solving: " << celli  << std::endl;
+        }
+        */
     }
     /*
     if (mechRed_->log() || tabulation_->log())
@@ -842,7 +851,6 @@ Foam::scalar Foam::TDACTaskChemistryModel<ReactionThermo, ThermoType>::solve
             << "    " << reduceMechCpuTime_ << endl;
     }
     */
-   
     /*
     if (tabulation_->active())
     {
